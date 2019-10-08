@@ -1,0 +1,16 @@
+安装iis powershell：
+
+Install-WindowsFeature Web-Server
+Install-WindowsFeature Web-Net-Ext45
+Install-WindowsFeature Web-Asp-Net45
+Install-WindowsFeature Web-Request-Monitor
+Install-WindowsFeature Web-Http-Tracing
+Install-WindowsFeature Web-Mgmt-Console
+
+设置时区 ntp服务器
+
+api payapi imapi hongbaoapi
+配置文件 Configs/db.json     （需要专用加密软件）
+
+
+
