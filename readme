@@ -229,6 +229,39 @@ server {
 
 
 
+root@im1:~/docker/tomcat8/webapps/im/WEB-INF/classes# cat init.properties
+#im
+im.appkey=1ba8774943a44a3138fcc0b5f63e57b1 
+im.appsecret=6a0bd3acb7ee
+im.apiBaseUrl= https://api.netease.im/nimserver
+im.adminAccount= system
+im.FFMPEGLocation=/usr/bin/ffmpeg
+im.key=372ea3f734d744b4f23fa34fb0f3d7ba
+im.teamMemberLimit=1000
+
+#jdbc
+jdbc.url=jdbc:mysql://10.0.1.61:3306/im?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8    #mysql ip
+jdbc.username=root
+jdbc.password=Nongfu2prn6
+jdbc.initialSize=5
+jdbc.maxActive=30
+jdbc.idleConnectionTestPeriod=100
+jdbc.initialPoolSize=30
+jdbc.maxIdleTime=60
+jdbc.maxPoolSize=100
+jdbc.minPoolSize=20
+jdbc.acquireIncrement=3
+jdbc.maxStatements=0
+
+
+#redis
+redis.host=10.0.1.171   #redis ip
+redis.port=6379
+redis.db=10
+redis.password=
+
+
+
 web:mobile  nginx node
 web:pc nginx node
 app nginx
@@ -238,6 +271,22 @@ admin nginx node
 
 
 im tomcat 
+root@im1:~/docker/tomcat8# cat docker-compose.yml
+version: '3'
+
+services:
+ tomcat:
+      restart: always
+      image: tomcat:8-alpine
+      ports:
+          - 80:8080
+      volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - ./webapps:/usr/local/tomcat/webapps
+      - ./logs:/usr/local/tomcat/logs
+      
+      
 pays nginx
 
 api:windows 2019 iis
