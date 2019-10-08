@@ -1,0 +1,12 @@
+
+创建服务：sc create 服务名 binPath=GameOpenXXXService.exe start= auto
+配置文件 GameOpenxxxService.exe.config
+
+
+ <add name="Cache" connectionString="加密后ip" />     #redis
+ <add name="JubaoModel" connectionString="加密后字符串" providerName="System.Data.SqlClient" />
+
+Data Source=ip地址;Initial Catalog=数据库名;User ID=用户名;Password=密码;MultipleActiveResultSets=True;App=EntityFramework;TransparentNetworkIPResolution=False
+
+上面那段加密后填入“加密后字符串"
+
