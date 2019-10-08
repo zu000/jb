@@ -1,0 +1,372 @@
+cdn : nginx
+中国大陆
+国外：acme.sh(SSL证书)
+
+root@debian:/etc/nginx# cat nginx.conf
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # SSL Settings
+        ##
+
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Dropping SSLv3, ref: POODLE
+        ssl_prefer_server_ciphers on;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+}
+
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}
+
+
+
+root@debian:/etc/nginx# cat conf.d/default.conf
+server_tokens off;
+
+proxy_cache_path /web/cache levels=1:2 keys_zone=my_cache:50m max_size=3g inactive=3h use_temp_path=off;
+
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_cache_lock on;
+proxy_cache_lock_timeout 2s;
+proxy_cache_revalidate on;
+proxy_cache_use_stale error timeout invalid_header updating http_500 http_503 http_504;
+#        add_header CDN-Cache "$upstream_cache_status";
+#etag off;
+
+upstream PC {
+        server ip;
+        keepalive 60;
+}
+
+upstream MOBILE {
+        server ip;
+        keepalive 60;
+}
+
+server {
+        listen 80 default_server;
+        server_name _;
+        root /web;
+        index index.html;
+        location / {
+                try_files $uri $uri/ =404;
+        }
+}
+
+server {
+        listen 81 default_server;
+        server_name _;
+        root /web;
+        index 403.html;
+        location / {
+                try_files $uri $uri/ =404;
+        }
+}
+
+
+simple:
+root@debian:/etc/nginx# cat conf.d/xypssl.conf
+server {
+        listen 80;
+        server_name ~^(www\.|m\.)?y91\w+\.com;
+        return 301 https://$host$request_uri;
+}
+
+server {
+        listen 443 ssl http2;
+        server_name ~^(www\.|m\.)?y91\w+\.com;
+        ssl_certificate /etc/nginx/conf.d/XYP4/fullchain.cer;
+        ssl_certificate_key /etc/nginx/conf.d/XYP4/XYP4.key;
+        ssl_session_timeout 1d;
+        ssl_session_cache shared:SSL:50m;
+        ssl_session_tickets off;
+        ssl_dhparam /etc/nginx/conf.d/dhparam4096.pem;
+        ssl_protocols TLSv1.2;
+        ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';
+        ssl_prefer_server_ciphers on;
+        ssl_stapling               on;
+        ssl_stapling_verify        on;
+        resolver 8.8.8.8 8.8.4.4 223.5.5.5 valid=300s;
+        resolver_timeout 5s;
+        add_header Strict-Transport-Security max-age=600;
+
+        set $RURL PC;
+        if ( $host ~* ^m\. ) {
+                set $RURL MOBILE;
+                }
+
+        location /.well-known/acme-challenge {
+                alias /web/.well-known/acme-challenge;
+                }
+
+        location ~* \.(?:jpg|jpeg|gif|png|ico|gz|js|css)$ {
+                expires 7d;
+                proxy_pass http://$RURL;
+                proxy_cache my_cache;
+                proxy_cache_valid 200 10m;
+                proxy_cache_valid 401 10s;
+                proxy_cache_key $request_uri;
+                add_header CDN-Cache "$upstream_cache_status";
+                access_log off;
+        }
+
+        location /api/game/LatestOpen {
+                proxy_hide_header Set-Cookie;
+                proxy_ignore_headers  Cache-Control Set-Cookie;
+                proxy_pass http://$RURL;
+                proxy_cache my_cache;
+                proxy_cache_valid 200 3s;
+                proxy_cache_key $uri$is_args$query_string;
+                }
+
+        location /api/game/YesterdayTopTen {
+                proxy_hide_header Set-Cookie;
+                proxy_ignore_headers  Cache-Control Set-Cookie;
+                proxy_pass http://$RURL;
+                proxy_cache my_cache;
+                proxy_cache_valid 200 3h;
+                proxy_cache_key $uri$is_args$query_string;
+                }
+
+        location /api/game/LatestWinning {
+                proxy_hide_header Set-Cookie;
+                proxy_ignore_headers  Cache-Control Set-Cookie;
+                proxy_pass http://$RURL;
+                proxy_cache my_cache;
+                proxy_cache_valid 200 60s;
+                proxy_cache_key $uri$is_args$query_string;
+                }
+
+        location /api/staticResource/TreeGameList {
+                proxy_hide_header Set-Cookie;
+                proxy_ignore_headers  Cache-Control Set-Cookie;
+                proxy_pass http://$RURL;
+                proxy_cache my_cache;
+                proxy_cache_valid 200 10s;
+                proxy_cache_key $uri$is_args$query_string;
+        }
+
+        location / {
+                proxy_pass http://$RURL;
+                }
+        error_page 500 502 503 504 /50x.html;
+}
+
+
+
+web:mobile  nginx node
+web:pc nginx node
+app nginx
+file  nginx node
+admin nginx node
+ 
+
+
+im tomcat 
+pays nginx
+
+api:windows 2019 iis
+
+
+redis 
+root@redis1:~# cat docker/redis/docker-compose.yml
+version: '3'
+
+services:
+    redis:
+        restart: always
+        image: redis:alpine
+        ports:
+            - 6379:6379
+        volumes:
+        - "/etc/timezone:/etc/timezone:ro"
+        - "/etc/localtime:/etc/localtime:ro"
+        - ./data:/data
+mysql 
+root@mysql1:~# cat docker/mysql/docker-compose.yml
+version: '3'
+
+services:
+   mysql:
+        restart: always
+        image: mysql:5
+        ports:
+           - 3306:3306
+        volumes:
+        - "/etc/timezone:/etc/timezone:ro"
+        - "/etc/localtime:/et//localtime:ro"
+        - ./data:/var/lib/mysql:rw
+        command: --default-authentication-plugin=mysql_native_password
+        environment:
+            MYSQL_ROOT_PASSWORD: password
+mssql
+
+version: '3'
+services:
+
+    db:
+        restart: always
+        image: microsoft/mssql-server-linux:latest
+        hostname: sql1
+        ports:
+            - 1433:1433
+            - 5022:5022
+        environment:
+            SA_PASSWORD: "pass"
+            ACCEPT_EULA: "Y"
+            MSSQL_ENABLE_HADR: "1"
+            MSSQL_AGENT_ENABLED: "true"
+            MSSQL_PID: "EnterpriseCore"
+            MSSQL_COLLATION: "Chinese_PRC_CI_AS"
+            MSSQL_LCID: "2052"
+            MSSQL_BACKUP_DIR: "/var/opt/mssql/data/sqlbackupfolder/"
+        volumes:
+            - /opt/sqldata/data:/var/opt/mssql/data
+            - /opt/sqldata/log:/var/opt/mssql/log
+            - /otherdisk/filegroup1/sqldata/JubaoCloud_log.ldf:/var/opt/mssql/data/JubaoCloud_log.ldf
+            - /otherdisk/filegroup1/sqldata/fg1:/var/opt/mssql/data/fg1
+            - /etc/hosts:/etc/hosts:ro
+        healthcheck:
+            test: sqlcmd -S localhost -U SA -P 'pass' -Q 'select 1'
+
+api:windows 2019 iis
+
+
+grafana
+
+
+
+prometheus
+/etc/hosts
+
+root@prometheus1-jp:~/docker/prometheus# cat docker-compose.yml
+version: '3'
+services:
+
+    prom:
+        restart: always
+        image: prom/prometheus
+        hostname: prom
+        ports:
+            - 9090:9090
+#        environment:
+        volumes:
+            - "/etc/localtime:/etc/localtime:ro"
+            - "/etc/timezone:/etc/timezone:ro"
+            - "/etc/hosts:/etc/hosts:ro"
+            - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+        command:
+          - '--web.enable-lifecycle'
+root@prometheus1-jp:~/docker/prometheus# cat prometheus.yml
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+rule_files:
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+    - targets: ['localhost:9090']
+  - job_name: 'redis'
+    static_configs:
+    - targets: ['redis1:9121']
+    - targets: ['redis2:9121']
+  - job_name: 'node'
+    static_configs:
+    - targets: ['web2:9100']
+    - targets: ['web3:9100']
+    - targets: ['mob1:9100']
+    - targets: ['mob2:9100']
+    - targets: ['mob3:9100']
+#    - targets: ['mob4:9100']
+#    - targets: ['mob5:9100']
+#    - targets: ['mob6:9100']
+    - targets: ['adm1:9100']
+    - targets: ['sql1:9100']
+    - targets: ['sql2:9100']
+    - targets: ['pays1:9100']
+    - targets: ['file1:9100']
+    - targets: ['grafana1:9100']
+    - targets: ['redis1:9100']
+    - targets: ['redis2:9100']
+    - targets: ['im1:9100']
+    - targets: ['mysql1:9100']
+#    - targets: ['mob7:9100']
