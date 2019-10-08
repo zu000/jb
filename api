@@ -1,3 +1,4 @@
+windows server 2019
 安装iis powershell：
 
 Install-WindowsFeature Web-Server
