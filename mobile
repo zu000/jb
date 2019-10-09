@@ -1,5 +1,6 @@
-nginx 最新版本即可
+移动端配置
 
+nginx 最新版本即可
 root@mobile1:/web/jbcIM/im# node -v
 v10.16.0
 
