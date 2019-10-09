@@ -121,3 +121,8 @@ location / {
                 root /web/jbcMobile-dist/dist/;
         }
 }
+
+
+
+PC端
+没有红包微服务，配置和mob一样
