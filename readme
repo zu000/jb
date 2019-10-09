@@ -59,10 +59,7 @@ services:
       
       
 pays nginx
-
-api:windows 2019 iis
-
-
+ 
 redis 
 root@redis1:~# cat docker/redis/docker-compose.yml
 version: '3'
