@@ -115,7 +115,7 @@ services:
         volumes:
             - /opt/sqldata/data:/var/opt/mssql/data
             - /opt/sqldata/log:/var/opt/mssql/log
-            - /otherdisk/filegroup1/sqldata/JubaoCloud_log.ldf:/var/opt/mssql/data/JubaoCloud_log.ldf
+            - /otherdisk/filegroup1/sqldata/x_log.ldf:/var/opt/mssql/data/x_log.ldf
             - /otherdisk/filegroup1/sqldata/fg1:/var/opt/mssql/data/fg1
             - /etc/hosts:/etc/hosts:ro
         healthcheck:
